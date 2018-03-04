@@ -1,0 +1,6 @@
+{
+    "terminal.integrated.env.linux": {
+        "PATH": "/home/dizzy/.platformio/penv/bin:/home/dizzy/.platformio/penv:/home/dizzy/opt/bin:/home/dizzy/.local/bin:/home/dizzy/.config/composer/vendor/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/home/dizzy/Android/Sdk/tools:/home/dizzy/.composer/vendor/bin",
+        "PLATFORMIO_CALLER": "vscode"
+    }
+}
