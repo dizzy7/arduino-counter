@@ -8,77 +8,106 @@
 #define AMOUNT_OF_INDEXES 1
 #define INDEX_RING_BUFFER 0
 
-// создаём объект класса QuadDisplay и передаём номер пина CS
-QuadDisplay qd(9);
-Ultrasonic ultrasonic(0,1,1000);
+#define SONIC_TRIGGER_PIN 0
+#define SONIC_ECHO_PIN 1
+#define DISPLAY_CS_PIN 9
 
-volatile int counter = 0;
+#define DEC_BUTTON_PIN 3
+#define INC_BUTTON_PIN 2
+#define RESET_BUTTON_PIN 7
+
+// создаём объект класса QuadDisplay и передаём номер пина CS
+QuadDisplay qd(DISPLAY_CS_PIN);
+Ultrasonic ultrasonic(SONIC_TRIGGER_PIN,SONIC_ECHO_PIN,1000);
+
+volatile unsigned int counter = 0;
 bool inRange = false;
 int range = 0;
-int eepNextAddress = 0;
-int eepCurrentValue = 0;
 
-void clearEep() {
-    for (int i = 0; i<= 1023; ++i) {
-        EEPROM[i] = 0;
-    }
-}
+volatile bool decButtonPressed = false;
+volatile bool incButtonPressed = false;
 
 void resetCounter() {
-    ++eepCurrentValue;
-    if (eepCurrentValue > 255) {
-        eepCurrentValue = 0;
-    }
-    EEPROM[0] = ++eepCurrentValue;
-    eepNextAddress = 1;
+    counter = 0;
+    EEPROMwl.putToNext(INDEX_RING_BUFFER, 0);
+    qd.displayInt(counter);
 }
 
-void readCounter() {
-    eepCurrentValue = EEPROM[0];
-    for (int i = 1; i <=1023; ++i) {
-        if (EEPROM[i] == eepCurrentValue) {
-            ++counter;
-        } else {
-            eepNextAddress = i;
-
-            return;
-        }
-    }
-    
-    resetCounter();
+void readCounter() {        
+    EEPROMwl.get(INDEX_RING_BUFFER, counter);
+    qd.displayInt(counter);    
 }
 
 void incCounter() {
     ++counter;
-    EEPROM[eepNextAddress] = eepCurrentValue;
-    ++eepNextAddress;
+    
+    EEPROMwl.putToNext(INDEX_RING_BUFFER, counter);    
+    qd.displayInt(counter);
+}
+
+void decCounter() {
+    if (counter > 0) {
+        --counter;
+    }    
+    
+    EEPROMwl.putToNext(INDEX_RING_BUFFER, counter);    
+    qd.displayInt(counter);
+}
+
+void decInterrupt() 
+{    
+    decCounter();
+    decButtonPressed = true;
+}
+
+void incInterrupt() 
+{        
+    incCounter();
+    incButtonPressed = true;
 }
 
 void setup()
-{
+{   
     qd.begin();
-    
-    readCounter();
 
-    qd.displayInt(counter);      
+    EEPROMwl.begin(EEPROM_LAYOUT_VERSION, AMOUNT_OF_INDEXES, 1024);    
+    readCounter();        
+    
+    attachInterrupt(digitalPinToInterrupt(DEC_BUTTON_PIN), decInterrupt, RISING);
+    attachInterrupt(digitalPinToInterrupt(INC_BUTTON_PIN), incInterrupt, RISING);    
+    attachInterrupt(digitalPinToInterrupt(RESET_BUTTON_PIN), resetCounter, RISING);    
 }
 
 void loop()
-{ 
-    range = ultrasonic.Ranging(CM);    
+{       
+    if (decButtonPressed) {
+        delay(1000);
+        while (digitalRead(DEC_BUTTON_PIN)) {
+            decCounter();
+            delay(300);
+        }
+        decButtonPressed = false;
+    }
 
-    if (!inRange && range <= 10) {
-        Serial.println(range);
+    if (incButtonPressed) {
+        delay(1000);
+        while (digitalRead(INC_BUTTON_PIN)) {
+            incCounter();
+            delay(300);
+        }
+        incButtonPressed = false;
+    }
+
+    range = ultrasonic.Ranging(CM);       
+
+    if (!inRange && range <= 10) {        
         inRange = true;
-        incCounter();
-        qd.displayInt(counter);
-        delay(300);
-    } else if (inRange && range > 10) {
-        Serial.println(range);
+        incCounter();        
+        delay(1000);
+    } else if (inRange && range > 10) {        
         inRange = false;
-        delay(300);
+        delay(1000);
     }        
 
     delay(50);
 }
-
